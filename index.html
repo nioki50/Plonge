@@ -91,6 +91,47 @@
             0% { background-position: 200% 0; }
             100% { background-position: -200% 0; }
         }
+
+        .home-axe-btn.selected {
+            border-color: #0891b2;
+            background: linear-gradient(135deg, rgba(8, 145, 178, 0.1) 0%, rgba(6, 182, 212, 0.05) 100%);
+        }
+
+        .home-axe-btn.selected::after {
+            content: '✓';
+            position: absolute;
+            top: 4px;
+            right: 8px;
+            font-size: 14px;
+            color: #0891b2;
+        }
+
+        .home-axe-btn {
+            position: relative;
+        }
+
+        .session-card {
+            transition: all 0.2s;
+        }
+
+        .session-card.completed {
+            background: linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(16, 185, 129, 0.05) 100%);
+            border-color: #22c55e;
+        }
+
+        .session-card.today {
+            border-color: #f59e0b;
+            box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+        }
+
+        .exercise-item.completed {
+            opacity: 0.6;
+        }
+
+        .exercise-item.active {
+            background: linear-gradient(135deg, rgba(8, 145, 178, 0.1) 0%, rgba(6, 182, 212, 0.05) 100%);
+            border-color: #0891b2;
+        }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-800 pb-20">
@@ -151,6 +192,9 @@
                 </button>
                 <button onclick="switchTab('progress')" class="nav-btn px-4 py-2 rounded-lg bg-white/10 text-sm font-medium hover:bg-white/30 transition whitespace-nowrap" data-tab="progress">
                     <i class="fas fa-chart-line mr-2"></i>Progrès
+                </button>
+                <button onclick="switchTab('home')" class="nav-btn px-4 py-2 rounded-lg bg-white/10 text-sm font-medium hover:bg-white/30 transition whitespace-nowrap" data-tab="home">
+                    <i class="fas fa-house-user mr-2"></i>Maison
                 </button>
             </nav>
         </div>
@@ -575,6 +619,145 @@
             </div>
         </div>
 
+        <!-- MAISON - Exercices à domicile -->
+        <div id="home" class="tab-content hidden space-y-6">
+
+            <!-- Configuration du programme (si pas de programme actif) -->
+            <div id="homeConfig" class="glass-panel rounded-xl shadow-sm p-6">
+                <div class="flex items-center justify-between mb-6">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-800">Programme d'entraînement maison</h2>
+                        <p class="text-sm text-slate-500">Créez un programme personnalisé sur plusieurs semaines</p>
+                    </div>
+                    <div class="bg-green-100 text-green-700 px-3 py-1.5 rounded-full text-sm font-medium">
+                        <i class="fas fa-home mr-1"></i>Exercices à sec
+                    </div>
+                </div>
+
+                <form id="homeProgramForm" class="space-y-6">
+                    <!-- Axes d'amélioration -->
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-3">
+                            <i class="fas fa-crosshairs mr-2 text-cyan-600"></i>Axes d'amélioration (1 à 3)
+                        </label>
+                        <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+                            <button type="button" onclick="toggleHomeAxe('pulmonary')" class="home-axe-btn flex items-center gap-2 p-3 rounded-lg border-2 border-slate-200 hover:border-cyan-400 transition" data-axe="pulmonary">
+                                <i class="fas fa-lungs text-xl text-cyan-600"></i>
+                                <div class="text-left">
+                                    <p class="font-medium text-sm">Capacité pulmonaire</p>
+                                    <p class="text-xs text-slate-500">Ventilation, stretching</p>
+                                </div>
+                            </button>
+                            <button type="button" onclick="toggleHomeAxe('relaxation')" class="home-axe-btn flex items-center gap-2 p-3 rounded-lg border-2 border-slate-200 hover:border-purple-400 transition" data-axe="relaxation">
+                                <i class="fas fa-spa text-xl text-purple-600"></i>
+                                <div class="text-left">
+                                    <p class="font-medium text-sm">Relaxation</p>
+                                    <p class="text-xs text-slate-500">Méditation, cohérence</p>
+                                </div>
+                            </button>
+                            <button type="button" onclick="toggleHomeAxe('co2')" class="home-axe-btn flex items-center gap-2 p-3 rounded-lg border-2 border-slate-200 hover:border-orange-400 transition" data-axe="co2">
+                                <i class="fas fa-wind text-xl text-orange-600"></i>
+                                <div class="text-left">
+                                    <p class="font-medium text-sm">Tolérance CO2</p>
+                                    <p class="text-xs text-slate-500">Tables, apnées répétées</p>
+                                </div>
+                            </button>
+                            <button type="button" onclick="toggleHomeAxe('flexibility')" class="home-axe-btn flex items-center gap-2 p-3 rounded-lg border-2 border-slate-200 hover:border-green-400 transition" data-axe="flexibility">
+                                <i class="fas fa-child text-xl text-green-600"></i>
+                                <div class="text-left">
+                                    <p class="font-medium text-sm">Souplesse</p>
+                                    <p class="text-xs text-slate-500">Yoga, étirements</p>
+                                </div>
+                            </button>
+                            <button type="button" onclick="toggleHomeAxe('strength')" class="home-axe-btn flex items-center gap-2 p-3 rounded-lg border-2 border-slate-200 hover:border-red-400 transition" data-axe="strength">
+                                <i class="fas fa-dumbbell text-xl text-red-600"></i>
+                                <div class="text-left">
+                                    <p class="font-medium text-sm">Renforcement</p>
+                                    <p class="text-xs text-slate-500">Gainage, jambes</p>
+                                </div>
+                            </button>
+                            <button type="button" onclick="toggleHomeAxe('equalization')" class="home-axe-btn flex items-center gap-2 p-3 rounded-lg border-2 border-slate-200 hover:border-blue-400 transition" data-axe="equalization">
+                                <i class="fas fa-head-side text-xl text-blue-600"></i>
+                                <div class="text-left">
+                                    <p class="font-medium text-sm">Compensation</p>
+                                    <p class="text-xs text-slate-500">Frenzel/BTV à sec</p>
+                                </div>
+                            </button>
+                        </div>
+                        <input type="hidden" id="homeAxes" name="axes">
+                    </div>
+
+                    <!-- Paramètres du programme -->
+                    <div class="grid md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Durée du programme</label>
+                            <select id="homeWeeks" class="w-full rounded-lg border-slate-300 focus:border-cyan-500 focus:ring-cyan-500">
+                                <option value="4">4 semaines</option>
+                                <option value="6" selected>6 semaines</option>
+                                <option value="8">8 semaines</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Séances par semaine</label>
+                            <select id="homeFrequency" class="w-full rounded-lg border-slate-300 focus:border-cyan-500 focus:ring-cyan-500">
+                                <option value="3">3 séances/semaine</option>
+                                <option value="4" selected>4 séances/semaine</option>
+                                <option value="5">5 séances/semaine</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Durée par séance</label>
+                            <select id="homeDuration" class="w-full rounded-lg border-slate-300 focus:border-cyan-500 focus:ring-cyan-500">
+                                <option value="10">10 minutes</option>
+                                <option value="15" selected>15 minutes</option>
+                                <option value="20">20 minutes</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="w-full bg-gradient-to-r from-green-600 to-teal-600 text-white py-4 rounded-xl font-bold text-lg hover:shadow-lg transition transform hover:scale-[1.02]">
+                        <i class="fas fa-magic mr-2"></i>Générer mon programme
+                    </button>
+                </form>
+            </div>
+
+            <!-- Calendrier du programme (affiché si programme actif) -->
+            <div id="homeCalendar" class="hidden glass-panel rounded-xl shadow-sm p-6">
+                <div class="flex items-center justify-between mb-6">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-800">Mon programme</h2>
+                        <p class="text-sm text-slate-500" id="homeProgramInfo">--</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="resetHomeProgram()" class="px-4 py-2 rounded-lg bg-red-100 text-red-700 text-sm font-medium hover:bg-red-200 transition">
+                            <i class="fas fa-trash mr-1"></i>Supprimer
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Stats rapides -->
+                <div class="grid grid-cols-3 gap-4 mb-6">
+                    <div class="bg-gradient-to-br from-green-50 to-emerald-50 p-4 rounded-xl border border-green-200 text-center">
+                        <p class="text-2xl font-bold text-green-700" id="homeCompletedCount">0</p>
+                        <p class="text-xs text-green-600">Séances terminées</p>
+                    </div>
+                    <div class="bg-gradient-to-br from-cyan-50 to-blue-50 p-4 rounded-xl border border-cyan-200 text-center">
+                        <p class="text-2xl font-bold text-cyan-700" id="homeCompletionRate">0%</p>
+                        <p class="text-xs text-cyan-600">Taux de complétion</p>
+                    </div>
+                    <div class="bg-gradient-to-br from-orange-50 to-amber-50 p-4 rounded-xl border border-orange-200 text-center">
+                        <p class="text-2xl font-bold text-orange-700" id="homeStreak">0</p>
+                        <p class="text-xs text-orange-600">Série en cours</p>
+                    </div>
+                </div>
+
+                <!-- Semaines -->
+                <div id="homeWeeksContainer" class="space-y-4">
+                    <!-- Généré par JS -->
+                </div>
+            </div>
+        </div>
+
     </main>
 
     <!-- Modal Réglementation -->
@@ -603,6 +786,62 @@
         </div>
     </div>
 
+    <!-- Modal Séance du jour -->
+    <div id="homeSessionModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <div class="p-6 border-b border-slate-200 flex justify-between items-center">
+                <div>
+                    <h3 class="text-xl font-bold text-slate-800">Séance du jour</h3>
+                    <p class="text-sm text-slate-500" id="sessionDateDisplay">--</p>
+                </div>
+                <button onclick="closeHomeSession()" class="text-slate-400 hover:text-slate-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+
+            <!-- Timer principal -->
+            <div class="p-6 bg-gradient-to-br from-cyan-50 to-blue-50 border-b border-slate-200">
+                <div class="text-center">
+                    <p class="text-sm text-slate-600 mb-2" id="currentExerciseName">Prêt à commencer</p>
+                    <div class="relative w-48 h-48 mx-auto mb-4">
+                        <svg class="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                            <circle cx="50" cy="50" r="45" stroke="#e2e8f0" stroke-width="8" fill="none"/>
+                            <circle id="timerProgress" cx="50" cy="50" r="45" stroke="#0891b2" stroke-width="8" fill="none"
+                                stroke-dasharray="283" stroke-dashoffset="0" stroke-linecap="round"/>
+                        </svg>
+                        <div class="absolute inset-0 flex flex-col items-center justify-center">
+                            <span class="text-4xl font-bold text-slate-800 mono" id="timerDisplay">0:00</span>
+                            <span class="text-sm text-slate-500" id="timerPhase">--</span>
+                        </div>
+                    </div>
+                    <div class="flex justify-center gap-4">
+                        <button onclick="toggleTimer()" id="timerPlayBtn" class="w-14 h-14 rounded-full bg-cyan-600 text-white hover:bg-cyan-700 transition flex items-center justify-center">
+                            <i class="fas fa-play text-xl"></i>
+                        </button>
+                        <button onclick="skipExercise()" class="w-14 h-14 rounded-full bg-slate-200 text-slate-600 hover:bg-slate-300 transition flex items-center justify-center">
+                            <i class="fas fa-forward text-xl"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Liste des exercices -->
+            <div class="p-6">
+                <h4 class="font-bold text-slate-800 mb-4">Exercices de la séance</h4>
+                <div id="sessionExercisesList" class="space-y-3">
+                    <!-- Généré par JS -->
+                </div>
+            </div>
+
+            <!-- Bouton terminer -->
+            <div class="p-6 border-t border-slate-200">
+                <button onclick="completeHomeSession()" id="completeSessionBtn" class="w-full bg-gradient-to-r from-green-600 to-teal-600 text-white py-3 rounded-lg font-bold hover:shadow-lg transition disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                    <i class="fas fa-check-circle mr-2"></i>Terminer la séance
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // ==================== CONFIGURATION ====================
         const CONFIG = {
@@ -620,6 +859,73 @@
         let map = null;
         let markers = [];
 
+        // Home training state
+        let homeProgram = JSON.parse(localStorage.getItem('home_program') || 'null');
+        let homeProgress = JSON.parse(localStorage.getItem('home_progress') || '{}');
+        let selectedHomeAxes = new Set();
+        let currentSessionDate = null;
+        let currentExerciseIndex = 0;
+        let timerInterval = null;
+        let timerRunning = false;
+        let timerSeconds = 0;
+        let audioContext = null;
+
+        // ==================== EXERCISES DATABASE ====================
+        const EXERCISES_DB = {
+            pulmonary: [
+                { id: 'pul1', name: 'Respiration carrée', description: 'Inspirez 4s, bloquez 4s, expirez 4s, bloquez 4s. Répéter 8 cycles.', duration: 180, difficulty: 1 },
+                { id: 'pul2', name: 'Ventilation poumons pleins', description: 'Inspirez à fond, maintenez 10s avec micro-mouvements thoraciques. Répéter 5x.', duration: 120, difficulty: 1 },
+                { id: 'pul3', name: 'Stretching intercostaux', description: 'Bras tendus, inclinaison latérale. Inspirer dans le côté étiré. 30s par côté.', duration: 120, difficulty: 1 },
+                { id: 'pul4', name: 'Respiration diaphragmatique', description: 'Allongé, main sur ventre. Inspirer par le ventre uniquement, 6s inspir / 6s expir.', duration: 180, difficulty: 1 },
+                { id: 'pul5', name: 'Expansion thoracique progressive', description: 'Inspirer par paliers (3 temps), bloquer 5s, expirer lentement. 6 répétitions.', duration: 150, difficulty: 2 },
+                { id: 'pul6', name: 'Respiration costale isolée', description: 'Mains sur côtes, inspirer en écartant les côtes latéralement. 5s/5s. 10 cycles.', duration: 120, difficulty: 2 },
+                { id: 'pul7', name: 'Packing léger', description: 'Inspir max + 3 micro-goulées d\'air. Maintenir 5s. 5 répétitions. ATTENTION: pas de forçage.', duration: 120, difficulty: 3 }
+            ],
+            relaxation: [
+                { id: 'rel1', name: 'Cohérence cardiaque 5-5', description: 'Inspirer 5s, expirer 5s. Sans pause. Suivre le rythme régulier pendant 5 minutes.', duration: 300, difficulty: 1 },
+                { id: 'rel2', name: 'Body scan', description: 'Allongé, scanner mentalement chaque partie du corps des pieds à la tête, relâcher les tensions.', duration: 300, difficulty: 1 },
+                { id: 'rel3', name: 'Visualisation plongée', description: 'Yeux fermés, visualiser une descente parfaite en apnée. Chaque geste, sensation, compensation.', duration: 240, difficulty: 1 },
+                { id: 'rel4', name: 'Relaxation Jacobson', description: 'Contracter 5s puis relâcher chaque groupe musculaire. Commencer par les pieds.', duration: 300, difficulty: 1 },
+                { id: 'rel5', name: 'Cohérence cardiaque 4-7', description: 'Inspirer 4s, expirer 7s. Accent sur l\'expiration longue. 5 minutes.', duration: 300, difficulty: 2 },
+                { id: 'rel6', name: 'Méditation pleine conscience', description: 'Focus sur la respiration. Observer les pensées sans jugement. Revenir au souffle.', duration: 300, difficulty: 2 }
+            ],
+            co2: [
+                { id: 'co21', name: 'Table CO2 débutant', description: 'Apnée 20s, récup 2min. Apnée 20s, récup 1min45. Continuer en réduisant récup de 15s.', duration: 480, difficulty: 1 },
+                { id: 'co22', name: 'Apnées répétées 1min récup', description: '8x apnée 20s avec 1min de récupération fixe entre chaque.', duration: 420, difficulty: 1 },
+                { id: 'co23', name: 'Marche en apnée (intérieur)', description: 'Inspirer, marcher en apnée dans la maison. Compter les pas. 5 répétitions.', duration: 300, difficulty: 2 },
+                { id: 'co24', name: 'Table CO2 intermédiaire', description: 'Apnée 30s, récup 2min -> 1min30 -> 1min15 -> 1min -> 45s. 5 séries.', duration: 480, difficulty: 2 },
+                { id: 'co25', name: 'Apnées poumons vides courtes', description: '10x apnée poumons vides 10-15s. Récup 30s. Renforce tolérance CO2.', duration: 300, difficulty: 2 },
+                { id: 'co26', name: 'Hypoxic squares', description: 'Inspirez, apnée 30s, expirez, apnée 10s vide. Répéter 6x.', duration: 360, difficulty: 3 },
+                { id: 'co27', name: 'Table CO2 avancée', description: 'Apnée cible 45s, récup décroissante de 2min à 30s. 6 séries.', duration: 540, difficulty: 3 }
+            ],
+            flexibility: [
+                { id: 'flex1', name: 'Étirements thoraciques', description: 'Bras croisés derrière le dos, ouvrir la poitrine. Respirer dans l\'étirement. 1min.', duration: 120, difficulty: 1 },
+                { id: 'flex2', name: 'Yoga chat-vache', description: 'À quatre pattes, alterner dos creux/dos rond en synchronisant la respiration. 10 cycles.', duration: 120, difficulty: 1 },
+                { id: 'flex3', name: 'Ouverture cage thoracique', description: 'Sur un coussin sous les omoplates, bras ouverts. Respirer profondément 2min.', duration: 150, difficulty: 1 },
+                { id: 'flex4', name: 'Étirement diaphragme', description: 'Position enfant, avancer les mains au sol, respirer dans le dos/flancs. 2min.', duration: 150, difficulty: 1 },
+                { id: 'flex5', name: 'Torsion vertébrale', description: 'Allongé, genoux d\'un côté, regarder de l\'autre. 1min par côté.', duration: 150, difficulty: 2 },
+                { id: 'flex6', name: 'Salutation au soleil modifiée', description: 'Enchaînement yoga adapté apnée: focus sur ouverture thoracique. 4 cycles.', duration: 240, difficulty: 2 },
+                { id: 'flex7', name: 'Étirement psoas', description: 'Fente basse, hanche vers l\'avant, bras levés. Respirer. 1min par côté.', duration: 150, difficulty: 2 }
+            ],
+            strength: [
+                { id: 'str1', name: 'Gainage ventral', description: 'Planche sur avant-bras, corps aligné. Maintenir en respirant calmement.', duration: 60, difficulty: 1 },
+                { id: 'str2', name: 'Squats', description: '15 squats lents, descente 3s, montée 2s. Travail jambes pour le palmage.', duration: 120, difficulty: 1 },
+                { id: 'str3', name: 'Planche latérale', description: 'Sur un avant-bras, corps aligné. 30s par côté.', duration: 90, difficulty: 1 },
+                { id: 'str4', name: 'Extensions lombaires', description: 'Allongé ventre, lever buste et jambes légèrement. 10 répétitions, tenir 3s.', duration: 90, difficulty: 1 },
+                { id: 'str5', name: 'Mountain climbers lents', description: 'Position pompe, ramener genoux alternés vers poitrine. Lent et contrôlé. 20 rep.', duration: 120, difficulty: 2 },
+                { id: 'str6', name: 'Gainage dynamique', description: 'Alterner planche ventrale, latérale droite, ventrale, latérale gauche. 15s chaque.', duration: 120, difficulty: 2 },
+                { id: 'str7', name: 'Fentes marchées', description: '10 fentes avant en avançant. Pas lents et profonds. Retour en arrière.', duration: 120, difficulty: 2 }
+            ],
+            equalization: [
+                { id: 'eq1', name: 'Frenzel à sec (répétitions)', description: 'Pratiquer la manœuvre Frenzel sans eau. 20 répétitions lentes et contrôlées.', duration: 120, difficulty: 1 },
+                { id: 'eq2', name: 'Mouthfill practice', description: 'Remplir la bouche d\'air, pratiquer le transfert vers les oreilles. 15 répétitions.', duration: 150, difficulty: 2 },
+                { id: 'eq3', name: 'Mobilité mâchoire', description: 'Ouvrir/fermer la mâchoire, mouvements latéraux, rotations. Détendre l\'ATM.', duration: 90, difficulty: 1 },
+                { id: 'eq4', name: 'Exercice tube d\'Eustache', description: 'Bâillements contrôlés, déglutitions avec nez pincé. 10 répétitions.', duration: 120, difficulty: 1 },
+                { id: 'eq5', name: 'Frenzel inversé', description: 'Pratiquer Frenzel bouche ouverte puis fermée en alternance. 15 répétitions.', duration: 120, difficulty: 2 },
+                { id: 'eq6', name: 'Simulation descente', description: 'Allongé, simuler une descente avec compensations régulières. Visualiser chaque mètre.', duration: 180, difficulty: 2 }
+            ]
+        };
+
         // ==================== INITIALISATION ====================
         document.addEventListener('DOMContentLoaded', () => {
             initWeather();
@@ -628,7 +934,8 @@
             renderClubHistory();
             updateStats();
             setDefaultDates();
-            
+            initHomeModule();
+
             // Vérifier connexion
             if (!navigator.onLine) {
                 document.getElementById('offlineBadge').style.display = 'block';
@@ -1249,6 +1556,518 @@
         document.getElementById('reglementationModal').addEventListener('click', (e) => {
             if (e.target === e.currentTarget) closeReglementation();
         });
+
+        // ==================== HOME TRAINING MODULE ====================
+
+        function initHomeModule() {
+            // Form submission
+            document.getElementById('homeProgramForm').addEventListener('submit', (e) => {
+                e.preventDefault();
+                generateHomeProgram();
+            });
+
+            // Render existing program if any
+            if (homeProgram) {
+                renderHomeCalendar();
+            }
+
+            // Modal click outside
+            document.getElementById('homeSessionModal').addEventListener('click', (e) => {
+                if (e.target === e.currentTarget) closeHomeSession();
+            });
+        }
+
+        function toggleHomeAxe(axe) {
+            const btn = document.querySelector(`.home-axe-btn[data-axe="${axe}"]`);
+
+            if (selectedHomeAxes.has(axe)) {
+                selectedHomeAxes.delete(axe);
+                btn.classList.remove('selected');
+            } else if (selectedHomeAxes.size < 3) {
+                selectedHomeAxes.add(axe);
+                btn.classList.add('selected');
+            } else {
+                alert('Maximum 3 axes. Désélectionnez-en un d\'abord.');
+            }
+
+            document.getElementById('homeAxes').value = Array.from(selectedHomeAxes).join(',');
+        }
+
+        function generateHomeProgram() {
+            if (selectedHomeAxes.size === 0) {
+                alert('Veuillez sélectionner au moins un axe d\'amélioration.');
+                return;
+            }
+
+            const weeks = parseInt(document.getElementById('homeWeeks').value);
+            const frequency = parseInt(document.getElementById('homeFrequency').value);
+            const duration = parseInt(document.getElementById('homeDuration').value);
+            const axes = Array.from(selectedHomeAxes);
+
+            // Generate program structure
+            const startDate = new Date();
+            startDate.setHours(0, 0, 0, 0);
+
+            const program = {
+                id: Date.now(),
+                startDate: startDate.toISOString(),
+                weeks: weeks,
+                frequency: frequency,
+                sessionDuration: duration,
+                axes: axes,
+                sessions: {}
+            };
+
+            // Generate sessions for each week
+            for (let week = 1; week <= weeks; week++) {
+                const weekSessions = generateWeekSessions(week, axes, duration, frequency);
+                weekSessions.forEach(session => {
+                    program.sessions[session.date] = session;
+                });
+            }
+
+            homeProgram = program;
+            homeProgress = {};
+            saveHomeData();
+            renderHomeCalendar();
+        }
+
+        function generateWeekSessions(weekNum, axes, targetDuration, frequency) {
+            const sessions = [];
+            const weekStart = new Date();
+            weekStart.setDate(weekStart.getDate() + (weekNum - 1) * 7);
+
+            // Distribute sessions across the week
+            const daysPerSession = Math.floor(7 / frequency);
+            let lastExercises = [];
+
+            for (let i = 0; i < frequency; i++) {
+                const sessionDate = new Date(weekStart);
+                sessionDate.setDate(weekStart.getDate() + i * daysPerSession + Math.floor(Math.random() * Math.max(1, daysPerSession - 1)));
+                sessionDate.setHours(0, 0, 0, 0);
+
+                const dateKey = sessionDate.toISOString().split('T')[0];
+
+                // Calculate difficulty based on week (progression)
+                const difficulty = weekNum <= 2 ? 1 : (weekNum <= 5 ? 2 : 3);
+
+                // Pick exercises avoiding recent ones
+                const exercises = pickExercises(axes, targetDuration * 60, difficulty, lastExercises);
+                lastExercises = exercises.map(e => e.id);
+
+                sessions.push({
+                    date: dateKey,
+                    week: weekNum,
+                    exercises: exercises,
+                    totalDuration: exercises.reduce((sum, e) => sum + e.duration, 0)
+                });
+            }
+
+            return sessions;
+        }
+
+        function pickExercises(axes, targetSeconds, maxDifficulty, excludeIds = []) {
+            const selected = [];
+            let totalDuration = 0;
+            const targetWithBuffer = targetSeconds * 1.1; // Allow 10% over
+
+            // Get all eligible exercises
+            let pool = [];
+            axes.forEach(axe => {
+                const axeExercises = EXERCISES_DB[axe] || [];
+                const eligible = axeExercises.filter(e =>
+                    e.difficulty <= maxDifficulty &&
+                    !excludeIds.includes(e.id)
+                );
+                pool = pool.concat(eligible.map(e => ({ ...e, axe })));
+            });
+
+            // Shuffle pool
+            pool = pool.sort(() => Math.random() - 0.5);
+
+            // Pick exercises until we reach target duration
+            for (const exercise of pool) {
+                if (totalDuration + exercise.duration <= targetWithBuffer) {
+                    selected.push(exercise);
+                    totalDuration += exercise.duration;
+                }
+
+                if (totalDuration >= targetSeconds * 0.9) {
+                    break; // Good enough
+                }
+            }
+
+            // If not enough, add from excluded (last resort)
+            if (totalDuration < targetSeconds * 0.7) {
+                const fallback = axes.flatMap(axe =>
+                    (EXERCISES_DB[axe] || [])
+                        .filter(e => e.difficulty <= maxDifficulty)
+                        .map(e => ({ ...e, axe }))
+                ).sort(() => Math.random() - 0.5);
+
+                for (const exercise of fallback) {
+                    if (!selected.find(s => s.id === exercise.id) &&
+                        totalDuration + exercise.duration <= targetWithBuffer) {
+                        selected.push(exercise);
+                        totalDuration += exercise.duration;
+                    }
+                    if (totalDuration >= targetSeconds * 0.9) break;
+                }
+            }
+
+            return selected;
+        }
+
+        function renderHomeCalendar() {
+            if (!homeProgram) {
+                document.getElementById('homeConfig').classList.remove('hidden');
+                document.getElementById('homeCalendar').classList.add('hidden');
+                return;
+            }
+
+            document.getElementById('homeConfig').classList.add('hidden');
+            document.getElementById('homeCalendar').classList.remove('hidden');
+
+            // Update info
+            const axeNames = {
+                pulmonary: 'Capacité pulmonaire',
+                relaxation: 'Relaxation',
+                co2: 'Tolérance CO2',
+                flexibility: 'Souplesse',
+                strength: 'Renforcement',
+                equalization: 'Compensation'
+            };
+            const axesText = homeProgram.axes.map(a => axeNames[a]).join(', ');
+            document.getElementById('homeProgramInfo').textContent =
+                `${homeProgram.weeks} semaines • ${homeProgram.frequency}x/sem • ${homeProgram.sessionDuration}min • ${axesText}`;
+
+            // Calculate stats
+            const totalSessions = Object.keys(homeProgram.sessions).length;
+            const completedSessions = Object.keys(homeProgress).filter(d => homeProgress[d]?.completed).length;
+            const completionRate = totalSessions > 0 ? Math.round(completedSessions / totalSessions * 100) : 0;
+
+            document.getElementById('homeCompletedCount').textContent = completedSessions;
+            document.getElementById('homeCompletionRate').textContent = completionRate + '%';
+            document.getElementById('homeStreak').textContent = calculateStreak();
+
+            // Render weeks
+            const container = document.getElementById('homeWeeksContainer');
+            const today = new Date().toISOString().split('T')[0];
+
+            // Group sessions by week
+            const weeks = {};
+            Object.entries(homeProgram.sessions).forEach(([date, session]) => {
+                if (!weeks[session.week]) {
+                    weeks[session.week] = [];
+                }
+                weeks[session.week].push({ date, ...session });
+            });
+
+            container.innerHTML = Object.entries(weeks).map(([weekNum, weekSessions]) => {
+                const weekCompleted = weekSessions.every(s => homeProgress[s.date]?.completed);
+                const weekIcon = weekCompleted ? 'fa-check-circle text-green-500' : 'fa-circle text-slate-300';
+
+                return `
+                    <div class="border border-slate-200 rounded-xl overflow-hidden">
+                        <div class="bg-slate-50 px-4 py-3 flex items-center justify-between">
+                            <h3 class="font-bold text-slate-700">
+                                <i class="fas ${weekIcon} mr-2"></i>Semaine ${weekNum}
+                            </h3>
+                            <span class="text-sm text-slate-500">
+                                ${weekSessions.filter(s => homeProgress[s.date]?.completed).length}/${weekSessions.length} séances
+                            </span>
+                        </div>
+                        <div class="p-4 grid grid-cols-2 md:grid-cols-4 gap-3">
+                            ${weekSessions.sort((a, b) => a.date.localeCompare(b.date)).map(session => {
+                                const isCompleted = homeProgress[session.date]?.completed;
+                                const isToday = session.date === today;
+                                const isPast = session.date < today && !isCompleted;
+                                const sessionClass = isCompleted ? 'completed' : (isToday ? 'today' : '');
+                                const dateObj = new Date(session.date + 'T12:00:00');
+                                const dayName = dateObj.toLocaleDateString('fr-FR', { weekday: 'short' });
+                                const dayNum = dateObj.getDate();
+                                const monthName = dateObj.toLocaleDateString('fr-FR', { month: 'short' });
+
+                                return `
+                                    <button onclick="showHomeSession('${session.date}')"
+                                        class="session-card ${sessionClass} p-3 rounded-lg border-2 border-slate-200 text-left hover:shadow-md transition ${isPast ? 'opacity-60' : ''}">
+                                        <div class="flex items-center justify-between mb-2">
+                                            <span class="text-xs font-medium text-slate-500 uppercase">${dayName}</span>
+                                            ${isCompleted ? '<i class="fas fa-check-circle text-green-500"></i>' : ''}
+                                            ${isToday && !isCompleted ? '<span class="text-xs bg-amber-100 text-amber-700 px-1.5 rounded">Aujourd\'hui</span>' : ''}
+                                        </div>
+                                        <p class="text-lg font-bold text-slate-800">${dayNum} ${monthName}</p>
+                                        <p class="text-xs text-slate-500 mt-1">
+                                            ${session.exercises.length} exercices • ${Math.round(session.totalDuration / 60)}min
+                                        </p>
+                                    </button>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function calculateStreak() {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            let streak = 0;
+            let checkDate = new Date(today);
+
+            // Check backwards for consecutive completed sessions
+            const sortedDates = Object.keys(homeProgram.sessions).sort().reverse();
+
+            for (const dateStr of sortedDates) {
+                const sessionDate = new Date(dateStr + 'T12:00:00');
+                if (sessionDate > today) continue;
+
+                if (homeProgress[dateStr]?.completed) {
+                    streak++;
+                } else if (sessionDate < today) {
+                    break; // Streak broken
+                }
+            }
+
+            return streak;
+        }
+
+        function showHomeSession(dateStr) {
+            currentSessionDate = dateStr;
+            const session = homeProgram.sessions[dateStr];
+            if (!session) return;
+
+            currentExerciseIndex = 0;
+            timerSeconds = 0;
+            timerRunning = false;
+
+            // Update modal
+            const dateObj = new Date(dateStr + 'T12:00:00');
+            document.getElementById('sessionDateDisplay').textContent =
+                dateObj.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+
+            renderSessionExercises(session);
+            updateTimerDisplay();
+
+            // Reset complete button
+            const isCompleted = homeProgress[dateStr]?.completed;
+            document.getElementById('completeSessionBtn').disabled = isCompleted;
+            document.getElementById('completeSessionBtn').innerHTML = isCompleted
+                ? '<i class="fas fa-check-circle mr-2"></i>Séance terminée'
+                : '<i class="fas fa-check-circle mr-2"></i>Terminer la séance';
+
+            document.getElementById('homeSessionModal').classList.remove('hidden');
+        }
+
+        function renderSessionExercises(session) {
+            const container = document.getElementById('sessionExercisesList');
+            const completedExercises = homeProgress[currentSessionDate]?.exercisesCompleted || [];
+
+            container.innerHTML = session.exercises.map((exercise, index) => {
+                const isCompleted = completedExercises.includes(exercise.id);
+                const isActive = index === currentExerciseIndex && !isCompleted;
+                const axeColors = {
+                    pulmonary: 'bg-cyan-100 text-cyan-700',
+                    relaxation: 'bg-purple-100 text-purple-700',
+                    co2: 'bg-orange-100 text-orange-700',
+                    flexibility: 'bg-green-100 text-green-700',
+                    strength: 'bg-red-100 text-red-700',
+                    equalization: 'bg-blue-100 text-blue-700'
+                };
+
+                return `
+                    <div class="exercise-item ${isCompleted ? 'completed' : ''} ${isActive ? 'active' : ''} p-4 rounded-lg border-2 border-slate-200 transition">
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="text-sm font-bold text-slate-800">${index + 1}. ${exercise.name}</span>
+                                    <span class="text-xs px-2 py-0.5 rounded-full ${axeColors[exercise.axe] || 'bg-slate-100'}">
+                                        ${Math.round(exercise.duration / 60)}min
+                                    </span>
+                                </div>
+                                <p class="text-sm text-slate-600">${exercise.description}</p>
+                            </div>
+                            <div class="ml-3">
+                                ${isCompleted
+                                    ? '<i class="fas fa-check-circle text-green-500 text-xl"></i>'
+                                    : (isActive ? '<i class="fas fa-play-circle text-cyan-500 text-xl animate-pulse"></i>' : '<i class="fas fa-circle text-slate-300 text-xl"></i>')
+                                }
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            // Update current exercise name
+            if (currentExerciseIndex < session.exercises.length) {
+                const current = session.exercises[currentExerciseIndex];
+                document.getElementById('currentExerciseName').textContent = current.name;
+                document.getElementById('timerPhase').textContent = `${Math.round(current.duration / 60)} min`;
+                timerSeconds = current.duration;
+                updateTimerDisplay();
+            }
+        }
+
+        function toggleTimer() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+
+            if (timerRunning) {
+                pauseTimer();
+            } else {
+                startTimer();
+            }
+        }
+
+        function startTimer() {
+            timerRunning = true;
+            document.getElementById('timerPlayBtn').innerHTML = '<i class="fas fa-pause text-xl"></i>';
+
+            timerInterval = setInterval(() => {
+                timerSeconds--;
+                updateTimerDisplay();
+
+                if (timerSeconds <= 0) {
+                    playBeep(800, 150); // End exercise beep
+                    setTimeout(() => playBeep(800, 150), 200);
+
+                    completeCurrentExercise();
+                }
+            }, 1000);
+        }
+
+        function pauseTimer() {
+            timerRunning = false;
+            clearInterval(timerInterval);
+            document.getElementById('timerPlayBtn').innerHTML = '<i class="fas fa-play text-xl"></i>';
+        }
+
+        function updateTimerDisplay() {
+            const minutes = Math.floor(timerSeconds / 60);
+            const seconds = timerSeconds % 60;
+            document.getElementById('timerDisplay').textContent =
+                `${minutes}:${seconds.toString().padStart(2, '0')}`;
+
+            // Update progress circle
+            const session = homeProgram.sessions[currentSessionDate];
+            if (session && currentExerciseIndex < session.exercises.length) {
+                const totalSeconds = session.exercises[currentExerciseIndex].duration;
+                const progress = 1 - (timerSeconds / totalSeconds);
+                const circumference = 2 * Math.PI * 45;
+                const offset = circumference * (1 - progress);
+                document.getElementById('timerProgress').style.strokeDashoffset = offset;
+            }
+        }
+
+        function completeCurrentExercise() {
+            pauseTimer();
+
+            const session = homeProgram.sessions[currentSessionDate];
+            if (!session) return;
+
+            // Mark exercise as completed
+            if (!homeProgress[currentSessionDate]) {
+                homeProgress[currentSessionDate] = { exercisesCompleted: [] };
+            }
+            const exerciseId = session.exercises[currentExerciseIndex].id;
+            if (!homeProgress[currentSessionDate].exercisesCompleted.includes(exerciseId)) {
+                homeProgress[currentSessionDate].exercisesCompleted.push(exerciseId);
+            }
+            saveHomeData();
+
+            // Move to next exercise
+            currentExerciseIndex++;
+
+            if (currentExerciseIndex >= session.exercises.length) {
+                // All exercises completed
+                document.getElementById('currentExerciseName').textContent = 'Séance terminée !';
+                document.getElementById('timerPhase').textContent = 'Bravo !';
+                document.getElementById('completeSessionBtn').disabled = false;
+
+                // Play end session sound
+                setTimeout(() => {
+                    playBeep(600, 300);
+                    setTimeout(() => playBeep(600, 300), 400);
+                    setTimeout(() => playBeep(600, 500), 800);
+                }, 500);
+            } else {
+                // Load next exercise
+                const next = session.exercises[currentExerciseIndex];
+                timerSeconds = next.duration;
+                document.getElementById('currentExerciseName').textContent = next.name;
+                document.getElementById('timerPhase').textContent = `${Math.round(next.duration / 60)} min`;
+            }
+
+            renderSessionExercises(session);
+            updateTimerDisplay();
+        }
+
+        function skipExercise() {
+            const session = homeProgram.sessions[currentSessionDate];
+            if (!session || currentExerciseIndex >= session.exercises.length) return;
+
+            completeCurrentExercise();
+        }
+
+        function playBeep(frequency = 800, duration = 150) {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            oscillator.frequency.value = frequency;
+            oscillator.type = 'sine';
+
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration / 1000);
+
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + duration / 1000);
+        }
+
+        function completeHomeSession() {
+            if (!currentSessionDate) return;
+
+            homeProgress[currentSessionDate] = {
+                ...homeProgress[currentSessionDate],
+                completed: true,
+                completedAt: new Date().toISOString()
+            };
+
+            saveHomeData();
+            closeHomeSession();
+            renderHomeCalendar();
+        }
+
+        function closeHomeSession() {
+            pauseTimer();
+            document.getElementById('homeSessionModal').classList.add('hidden');
+            currentSessionDate = null;
+        }
+
+        function resetHomeProgram() {
+            if (!confirm('Supprimer le programme actuel ? Toute la progression sera perdue.')) {
+                return;
+            }
+
+            homeProgram = null;
+            homeProgress = {};
+            selectedHomeAxes.clear();
+            document.querySelectorAll('.home-axe-btn').forEach(btn => btn.classList.remove('selected'));
+            saveHomeData();
+            renderHomeCalendar();
+        }
+
+        function saveHomeData() {
+            localStorage.setItem('home_program', JSON.stringify(homeProgram));
+            localStorage.setItem('home_progress', JSON.stringify(homeProgress));
+        }
     </script>
 </body>
 </html>
