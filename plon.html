@@ -1,0 +1,1254 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>DeepLog - Carnet Chausey</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Leaflet Map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap');
+        
+        body { 
+            font-family: 'Inter', sans-serif; 
+            touch-action: manipulation;
+        }
+        
+        .ocean-gradient { 
+            background: linear-gradient(135deg, #006994 0%, #003d5c 50%, #001f3f 100%); 
+        }
+        
+        .glass-panel { 
+            background: rgba(255, 255, 255, 0.95); 
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        
+        .tide-wave { 
+            animation: wave 3s ease-in-out infinite;
+            display: inline-block;
+        }
+        
+        @keyframes wave {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-3px); }
+        }
+        
+        .pulse-alert { animation: pulse-red 2s infinite; }
+        
+        @keyframes pulse-red {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+            50% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+        }
+        
+        .club-tag {
+            transition: all 0.2s;
+        }
+        
+        .club-tag.active {
+            background: #006994;
+            color: white;
+            transform: scale(1.05);
+        }
+        
+        #map { height: 300px; width: 100%; border-radius: 0.75rem; z-index: 1; }
+        
+        .mono { font-family: 'JetBrains Mono', monospace; }
+        
+        .offline-badge {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #f59e0b;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            display: none;
+            z-index: 9999;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .loading-skeleton {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite;
+        }
+        
+        @keyframes loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 pb-20">
+
+    <!-- Badge Offline -->
+    <div id="offlineBadge" class="offline-badge">
+        <i class="fas fa-wifi-slash mr-2"></i>Mode hors-ligne
+    </div>
+
+    <!-- Header avec données LIVE -->
+    <header class="ocean-gradient text-white shadow-lg sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-3">
+            <div class="flex justify-between items-start">
+                <div class="flex items-center gap-3">
+                    <div class="bg-white/20 p-2 rounded-lg backdrop-blur-sm">
+                        <i class="fas fa-water text-2xl text-cyan-300 tide-wave"></i>
+                    </div>
+                    <div>
+                        <h1 class="font-bold text-lg tracking-wide">DeepLog</h1>
+                        <p class="text-xs text-cyan-200 flex items-center gap-1">
+                            <i class="fas fa-map-marker-alt"></i> Chausey (48.87°N, 1.82°W)
+                        </p>
+                    </div>
+                </div>
+                
+                <!-- Widget Météo/Marée LIVE -->
+                <div class="text-right">
+                    <div id="weatherWidget" class="flex flex-col items-end gap-1">
+                        <!-- Les données seront injectées ici par JS -->
+                        <div class="flex items-center gap-2 bg-white/10 px-3 py-1.5 rounded-full backdrop-blur-sm">
+                            <div id="tideDisplay" class="loading-skeleton w-24 h-4 rounded"></div>
+                        </div>
+                        <div class="flex items-center gap-3 text-xs mt-1">
+                            <span id="windDisplay" class="loading-skeleton w-20 h-3 rounded"></span>
+                            <span id="tempDisplay" class="loading-skeleton w-16 h-3 rounded"></span>
+                        </div>
+                    </div>
+                    <!-- Alerte grandes marées (cachée par défaut) -->
+                    <div id="tideAlert" class="hidden mt-2 text-xs bg-red-500/80 px-2 py-1 rounded pulse-alert">
+                        <i class="fas fa-exclamation-triangle"></i> Grande marée (coeff >90)
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Navigation -->
+            <nav class="flex gap-1 mt-4 overflow-x-auto pb-1 scrollbar-hide">
+                <button onclick="switchTab('dashboard')" class="nav-btn px-4 py-2 rounded-lg bg-white/20 text-sm font-medium hover:bg-white/30 transition whitespace-nowrap active-tab" data-tab="dashboard">
+                    <i class="fas fa-home mr-2"></i>Accueil
+                </button>
+                <button onclick="switchTab('club')" class="nav-btn px-4 py-2 rounded-lg bg-white/10 text-sm font-medium hover:bg-white/30 transition whitespace-nowrap" data-tab="club">
+                    <i class="fas fa-swimming-pool mr-2"></i>Lundi Club
+                </button>
+                <button onclick="switchTab('session')" class="nav-btn px-4 py-2 rounded-lg bg-white/10 text-sm font-medium hover:bg-white/30 transition whitespace-nowrap" data-tab="session">
+                    <i class="fas fa-fish mr-2"></i>Nouvelle Sortie
+                </button>
+                <button onclick="switchTab('spots')" class="nav-btn px-4 py-2 rounded-lg bg-white/10 text-sm font-medium hover:bg-white/30 transition whitespace-nowrap" data-tab="spots">
+                    <i class="fas fa-map-marked-alt mr-2"></i>Spots
+                </button>
+                <button onclick="switchTab('progress')" class="nav-btn px-4 py-2 rounded-lg bg-white/10 text-sm font-medium hover:bg-white/30 transition whitespace-nowrap" data-tab="progress">
+                    <i class="fas fa-chart-line mr-2"></i>Progrès
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 py-6 space-y-6">
+
+        <!-- DASHBOARD -->
+        <div id="dashboard" class="tab-content space-y-6">
+            
+            <!-- Résumé rapide -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="glass-panel p-4 rounded-xl shadow-sm border-l-4 border-cyan-500">
+                    <p class="text-xs text-slate-500 uppercase tracking-wider">Apnée Statique</p>
+                    <p class="text-2xl font-bold text-slate-800 mono">3'20"</p>
+                    <p class="text-xs text-green-600"><i class="fas fa-arrow-up"></i> +15s ce mois</p>
+                </div>
+                <div class="glass-panel p-4 rounded-xl shadow-sm border-l-4 border-blue-500">
+                    <p class="text-xs text-slate-500 uppercase tracking-wider">Profondeur Max</p>
+                    <p class="text-2xl font-bold text-slate-800 mono">10m</p>
+                    <p class="text-xs text-amber-600"><i class="fas fa-ear-listen"></i> Attention oreilles</p>
+                </div>
+                <div class="glass-panel p-4 rounded-xl shadow-sm border-l-4 border-teal-500">
+                    <p class="text-xs text-slate-500 uppercase tracking-wider">Sorties Chausey</p>
+                    <p class="text-2xl font-bold text-slate-800 mono" id="sessionCount">0</p>
+                    <p class="text-xs text-slate-500">cette saison</p>
+                </div>
+                <div class="glass-panel p-4 rounded-xl shadow-sm border-l-4 border-purple-500">
+                    <p class="text-xs text-slate-500 uppercase tracking-wider">Club (Lundi)</p>
+                    <p class="text-2xl font-bold text-slate-800 mono" id="clubCount">0</p>
+                    <p class="text-xs text-slate-500">séances</p>
+                </div>
+            </div>
+
+            <!-- Dernières sessions -->
+            <div class="glass-panel rounded-xl shadow-sm overflow-hidden">
+                <div class="p-4 border-b border-slate-200 flex justify-between items-center">
+                    <h2 class="font-bold text-lg"><i class="fas fa-history mr-2 text-cyan-600"></i>Historique récent</h2>
+                    <select id="filterType" onchange="renderLogbook()" class="text-sm border rounded-lg px-3 py-1 bg-slate-50">
+                        <option value="all">Toutes</option>
+                        <option value="sea">Mer (Chausey)</option>
+                        <option value="club">Club Lundi</option>
+                        <option value="training">Entraînement</option>
+                    </select>
+                </div>
+                <div id="logbookList" class="divide-y divide-slate-100">
+                    <!-- Injecté par JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- CLUB - Saisie rapide imprévue -->
+        <div id="club" class="tab-content hidden space-y-6">
+            <div class="glass-panel rounded-xl shadow-sm p-6">
+                <div class="flex items-center justify-between mb-6">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-800">Séance de Club - Lundi Soir</h2>
+                        <p class="text-sm text-slate-500">Saisie rapide post-entraînement (programme souvent imprévu)</p>
+                    </div>
+                    <div class="bg-purple-100 text-purple-700 px-4 py-2 rounded-full text-sm font-medium">
+                        <i class="fas fa-clock mr-2"></i><span id="nextMonday">Prochain lundi: --/--</span>
+                    </div>
+                </div>
+
+                <form id="clubForm" class="space-y-6">
+                    <!-- Date -->
+                    <div class="grid md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Date de la séance</label>
+                            <input type="date" id="clubDate" required 
+                                class="w-full rounded-lg border-slate-300 focus:border-cyan-500 focus:ring-cyan-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Coach / Encadrant</label>
+                            <input type="text" id="clubCoach" placeholder="Prénom du coach..." 
+                                class="w-full rounded-lg border-slate-300 focus:border-cyan-500 focus:ring-cyan-500">
+                        </div>
+                    </div>
+
+                    <!-- Type d'exercices réalisés (checkbox style tags) -->
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-3">Exercices réalisés (sélection multiple)</label>
+                        <div class="flex flex-wrap gap-2">
+                            <button type="button" onclick="toggleClubEx('statique')" class="club-tag px-4 py-2 rounded-full border border-slate-300 text-sm font-medium" data-ex="statique">
+                                <i class="fas fa-lungs mr-2"></i>Statique (STA)
+                            </button>
+                            <button type="button" onclick="toggleClubEx('dynamique')" class="club-tag px-4 py-2 rounded-full border border-slate-300 text-sm font-medium" data-ex="dynamique">
+                                <i class="fas fa-ruler-horizontal mr-2"></i>Dynamique (DYN)
+                            </button>
+                            <button type="button" onclick="toggleClubEx('tables')" class="club-tag px-4 py-2 rounded-full border border-slate-300 text-sm font-medium" data-ex="tables">
+                                <i class="fas fa-table mr-2"></i>Tables CO2/O2
+                            </button>
+                            <button type="button" onclick="toggleClubEx('tech')" class="club-tag px-4 py-2 rounded-full border border-slate-300 text-sm font-medium" data-ex="tech">
+                                <i class="fas fa-cog mr-2"></i>Technique (palmes/ventre)
+                            </button>
+                            <button type="button" onclick="toggleClubEx('dry')" class="club-tag px-4 py-2 rounded-full border border-slate-300 text-sm font-medium" data-ex="dry">
+                                <i class="fas fa-wind mr-2"></i>Travail à sec (yoga/resp)
+                            </button>
+                        </div>
+                        <input type="hidden" id="clubExercises" name="exercises">
+                    </div>
+
+                    <!-- Performances conditionnelles -->
+                    <div id="perfInputs" class="grid md:grid-cols-2 gap-4 opacity-50 pointer-events-none transition-opacity">
+                        <div class="bg-cyan-50 p-4 rounded-lg border border-cyan-200">
+                            <label class="block text-sm font-medium text-cyan-900 mb-2">Meilleur temps statique</label>
+                            <div class="flex gap-2">
+                                <input type="number" id="staMin" placeholder="Min" min="0" max="10" 
+                                    class="w-20 rounded-lg border-cyan-300 text-center">
+                                <span class="self-center text-cyan-700">:</span>
+                                <input type="number" id="staSec" placeholder="Sec" min="0" max="59" 
+                                    class="w-20 rounded-lg border-cyan-300 text-center">
+                            </div>
+                        </div>
+                        <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                            <label class="block text-sm font-medium text-blue-900 mb-2">Dynamique max</label>
+                            <div class="flex items-center gap-2">
+                                <input type="number" id="dynDist" placeholder="25" step="5"
+                                    class="w-full rounded-lg border-blue-300">
+                                <span class="text-blue-700 text-sm font-medium">mètres</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Ressenti -->
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-2">Ressenti général</label>
+                        <div class="flex gap-4">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="feeling" value="great" class="text-green-500 focus:ring-green-500">
+                                <span class="text-2xl">💪</span> Au top
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="feeling" value="good" checked class="text-blue-500 focus:ring-blue-500">
+                                <span class="text-2xl">🙂</span> Correct
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="feeling" value="tired" class="text-orange-500 focus:ring-orange-500">
+                                <span class="text-2xl">😮‍💨</span> Crevé
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="feeling" value="bad" class="text-red-500 focus:ring-red-500">
+                                <span class="text-2xl">🤕</span> Difficile
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Commentaire rapide -->
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-2">Notes (optionnel)</label>
+                        <textarea id="clubNotes" rows="2" placeholder="Impressions, sensations, blocages oreilles..." 
+                            class="w-full rounded-lg border-slate-300 focus:border-cyan-500 focus:ring-cyan-500 text-sm"></textarea>
+                    </div>
+
+                    <div class="flex gap-3 pt-4">
+                        <button type="button" onclick="saveClubDraft()" class="flex-1 bg-slate-200 text-slate-700 py-3 rounded-lg font-medium hover:bg-slate-300 transition">
+                            <i class="fas fa-clock mr-2"></i>Sauver brouillon
+                        </button>
+                        <button type="submit" class="flex-[2] bg-gradient-to-r from-cyan-600 to-blue-600 text-white py-3 rounded-lg font-medium hover:shadow-lg transition transform hover:scale-[1.02]">
+                            <i class="fas fa-save mr-2"></i>Enregistrer la séance
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Historique club -->
+            <div class="glass-panel rounded-xl shadow-sm p-4">
+                <h3 class="font-bold text-lg mb-4">Derniers lundis</h3>
+                <div id="clubHistory" class="space-y-3">
+                    <!-- Injecté par JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- NOUVELLE SORTIE CHAUSEY -->
+        <div id="session" class="tab-content hidden space-y-6">
+            <div class="glass-panel rounded-xl shadow-sm p-6">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-xl font-bold text-slate-800">Nouvelle sortie mer</h2>
+                    <div class="flex items-center gap-2 text-sm text-slate-500">
+                        <i class="fas fa-boat"></i>
+                        <span>Sortie bateau - Archipel Chausey</span>
+                    </div>
+                </div>
+
+                <form id="seaForm" class="space-y-6">
+                    <!-- Header session -->
+                    <div class="grid md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Date</label>
+                            <input type="date" id="seaDate" required 
+                                class="w-full rounded-lg border-slate-300 focus:border-cyan-500 focus:ring-cyan-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Heure début</label>
+                            <input type="time" id="seaTime" required 
+                                class="w-full rounded-lg border-slate-300 focus:border-cyan-500 focus:ring-cyan-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-2">Marée (coefficient)</label>
+                            <div class="relative">
+                                <input type="number" id="seaTide" min="20" max="120" placeholder="82"
+                                    class="w-full rounded-lg border-slate-300 focus:border-cyan-500 focus:ring-cyan-500 pr-8">
+                                <span class="absolute right-3 top-2.5 text-slate-400 text-sm">coef</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Conditions -->
+                    <div class="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                        <h3 class="font-medium text-slate-800 mb-3"><i class="fas fa-cloud-sun mr-2"></i>Conditions météo (auto-remplies si possible)</h3>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div>
+                                <label class="block text-xs text-slate-500 mb-1">Vent (nœuds)</label>
+                                <input type="number" id="windSpeed" step="0.1" class="w-full rounded border-slate-300 text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-slate-500 mb-1">Visibilité (m)</label>
+                                <input type="number" id="visibility" placeholder="3-5" class="w-full rounded border-slate-300 text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-slate-500 mb-1">Temp eau (°C)</label>
+                                <input type="number" id="waterTemp" step="0.1" class="w-full rounded border-slate-300 text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-slate-500 mb-1">Type de sol</label>
+                                <select id="bottomType" class="w-full rounded border-slate-300 text-sm">
+                                    <option value="mix">Mixte</option>
+                                    <option value="rock">Roche</option>
+                                    <option value="sand">Sable</option>
+                                    <option value="weed">Herbier</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Checklist pré-plongée (Oreilles !) -->
+                    <div class="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                        <h3 class="font-medium text-amber-900 mb-3"><i class="fas fa-ear-listen mr-2"></i>Check-up pré-plongée</h3>
+                        <div class="grid md:grid-cols-2 gap-4 text-sm">
+                            <label class="flex items-center gap-2">
+                                <input type="checkbox" id="checkEars" class="rounded text-amber-600 focus:ring-amber-500">
+                                <span class="text-amber-800">Oreilles OK (pas de douleur)</span>
+                            </label>
+                            <label class="flex items-center gap-2">
+                                <input type="checkbox" id="checkSleep" class="rounded text-amber-600 focus:ring-amber-500">
+                                <span class="text-amber-800">Sommeil > 6h</span>
+                            </label>
+                            <label class="flex items-center gap-2">
+                                <input type="checkbox" id="checkStress" class="rounded text-amber-600 focus:ring-amber-500">
+                                <span class="text-amber-800">Stress/fatigue gérable</span>
+                            </label>
+                            <label class="flex items-center gap-2">
+                                <input type="checkbox" id="checkBinome" class="rounded text-amber-600 focus:ring-amber-500" checked>
+                                <span class="text-amber-800">Binôme présent</span>
+                            </label>
+                        </div>
+                        <p class="text-xs text-amber-700 mt-2 italic">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            Attention: prof max 10m, problème d'équilibre fréquent - faire attention
+                        </p>
+                    </div>
+
+                    <!-- Binôme -->
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-2">Binôme de sortie</label>
+                        <input type="text" id="binomeName" placeholder="Prénom et nom du partenaire" required
+                            class="w-full rounded-lg border-slate-300 focus:border-cyan-500 focus:ring-cyan-500">
+                    </div>
+
+                    <!-- Prises -->
+                    <div class="border-t border-slate-200 pt-4">
+                        <div class="flex items-center justify-between mb-3">
+                            <h3 class="font-medium text-slate-800">Prises / Observations</h3>
+                            <label class="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+                                <input type="checkbox" id="observationOnly" class="rounded text-cyan-600">
+                                <span>Sortie observation uniquement (sans fusil)</span>
+                            </label>
+                        </div>
+                        
+                        <div id="catchesContainer" class="space-y-2">
+                            <div class="flex gap-2 items-center catch-row">
+                                <select class="rounded-lg border-slate-300 text-sm flex-1 species-select">
+                                    <option value="">Espèce...</option>
+                                    <option value="turbot">Turbot</option>
+                                    <option value="sole">Sole</option>
+                                    <option value="bar">Bar</option>
+                                    <option value="mulet">Mulet</option>
+                                    <option value="congre">Congre</option>
+                                    <option value="ormeau">Ormeau</option>
+                                    <option value="crabe">Crabe</option>
+                                    <option value="observation">Observation uniquement</option>
+                                </select>
+                                <input type="number" placeholder="Poids kg" step="0.1" min="0" 
+                                    class="w-24 rounded-lg border-slate-300 text-sm weight-input">
+                                <button type="button" onclick="addCatchRow()" class="text-cyan-600 hover:text-cyan-800">
+                                    <i class="fas fa-plus-circle text-xl"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <p class="text-xs text-slate-500 mt-2">
+                            <i class="fas fa-ruler mr-1"></i> 
+                            Tailles minimales Manche: Bar 42cm, Turbot 30cm, Sole 24cm...
+                            <button type="button" onclick="showReglementation()" class="text-cyan-600 underline ml-2">Voir tout</button>
+                        </p>
+                    </div>
+
+                    <!-- Technique -->
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-2">Technique utilisée</label>
+                        <div class="flex gap-2 flex-wrap">
+                            <label class="flex items-center gap-2 px-4 py-2 rounded-full border border-slate-300 bg-white cursor-pointer has-[:checked]:bg-cyan-50 has-[:checked]:border-cyan-500">
+                                <input type="radio" name="tech" value="coulee" checked class="text-cyan-600 focus:ring-cyan-500">
+                                <span class="text-sm">À la coulée</span>
+                            </label>
+                            <label class="flex items-center gap-2 px-4 py-2 rounded-full border border-slate-300 bg-white cursor-pointer has-[:checked]:bg-cyan-50 has-[:checked]:border-cyan-500">
+                                <input type="radio" name="tech" value="agachon" class="text-cyan-600 focus:ring-cyan-500">
+                                <span class="text-sm">À l'agachon</span>
+                            </label>
+                            <label class="flex items-center gap-2 px-4 py-2 rounded-full border border-slate-300 bg-white cursor-pointer has-[:checked]:bg-cyan-50 has-[:checked]:border-cyan-500">
+                                <input type="radio" name="tech" value="trou" class="text-cyan-600 focus:ring-cyan-500">
+                                <span class="text-sm">Au trou</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="w-full bg-gradient-to-r from-cyan-600 to-blue-600 text-white py-4 rounded-xl font-bold text-lg hover:shadow-lg transition transform hover:scale-[1.02]">
+                        <i class="fas fa-anchor mr-2"></i>Enregistrer la sortie
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- SPOTS & CARTE -->
+        <div id="spots" class="tab-content hidden space-y-6">
+            <div class="glass-panel rounded-xl shadow-sm p-4">
+                <h2 class="text-xl font-bold text-slate-800 mb-4">Mes spots privés - Chausey</h2>
+                
+                <!-- Carte Leaflet -->
+                <div id="map" class="mb-4 shadow-inner"></div>
+
+                <!-- Ajout rapide spot -->
+                <div class="grid md:grid-cols-3 gap-4 mt-4">
+                    <input type="text" id="spotName" placeholder="Nom du spot" class="rounded-lg border-slate-300">
+                    <select id="spotType" class="rounded-lg border-slate-300">
+                        <option value="rock">Roche</option>
+                        <option value="sand">Sable</option>
+                        <option value="weed">Herbier</option>
+                        <option value="drop">Tombant</option>
+                    </select>
+                    <button onclick="addCurrentSpot()" class="bg-cyan-600 text-white rounded-lg font-medium hover:bg-cyan-700">
+                        <i class="fas fa-map-pin mr-2"></i>Ajouter position actuelle
+                    </button>
+                </div>
+
+                <!-- Conditions idéales -->
+                <div class="mt-6 space-y-3" id="spotsList">
+                    <!-- Injecté par JS -->
+                </div>
+            </div>
+
+            <!-- Référentiel Chausey -->
+            <div class="glass-panel rounded-xl shadow-sm p-4 bg-gradient-to-br from-blue-50 to-cyan-50 border-blue-200">
+                <h3 class="font-bold text-blue-900 mb-3"><i class="fas fa-book-open mr-2"></i>Référentiel Manche - Chausey</h3>
+                <div class="grid md:grid-cols-2 gap-4 text-sm">
+                    <div class="bg-white p-3 rounded-lg shadow-sm">
+                        <h4 class="font-semibold text-slate-800 mb-2">Tailles légales</h4>
+                        <ul class="space-y-1 text-slate-600">
+                            <li class="flex justify-between"><span>Bar</span> <span class="font-mono font-bold">42 cm</span></li>
+                            <li class="flex justify-between"><span>Turbot</span> <span class="font-mono font-bold">30 cm</span></li>
+                            <li class="flex justify-between"><span>Sole</span> <span class="font-mono font-bold">24 cm</span></li>
+                            <li class="flex justify-between"><span>Mulet</span> <span class="font-mono font-bold">20 cm</span></li>
+                        </ul>
+                    </div>
+                    <div class="bg-white p-3 rounded-lg shadow-sm">
+                        <h4 class="font-semibold text-slate-800 mb-2">Zones protégées</h4>
+                        <ul class="space-y-1 text-slate-600 text-xs">
+                            <li><i class="fas fa-ban text-red-500 mr-1"></i> Réserve naturelle Grande Ile (interdit)</li>
+                            <li><i class="fas fa-exclamation-triangle text-amber-500 mr-1"></i> Zone Natura 2000 (réglementée)</li>
+                            <li><i class="fas fa-info-circle text-blue-500 mr-1"></i> Interdit < 300m des côtes (Chausey ville)</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PROGRESSION -->
+        <div id="progress" class="tab-content hidden space-y-6">
+            <div class="glass-panel rounded-xl shadow-sm p-6">
+                <h2 class="text-xl font-bold text-slate-800 mb-6">Progression (Mode Loisir)</h2>
+                
+                <div class="grid md:grid-cols-2 gap-6 mb-6">
+                    <div class="bg-slate-50 p-4 rounded-xl">
+                        <h3 class="font-semibold text-slate-700 mb-4">Apnée Statique (Club)</h3>
+                        <canvas id="staChart" height="200"></canvas>
+                    </div>
+                    <div class="bg-slate-50 p-4 rounded-xl">
+                        <h3 class="font-semibold text-slate-700 mb-4">Profondeur (Mer)</h3>
+                        <canvas id="depthChart" height="200"></canvas>
+                    </div>
+                </div>
+
+                <div class="bg-gradient-to-r from-purple-100 to-cyan-100 rounded-xl p-6">
+                    <h3 class="font-bold text-slate-800 mb-4"><i class="fas fa-medal mr-2 text-yellow-500"></i>Badges récents</h3>
+                    <div class="flex gap-4 flex-wrap">
+                        <div class="bg-white px-4 py-3 rounded-lg shadow-sm flex items-center gap-3">
+                            <div class="text-2xl">🌊</div>
+                            <div>
+                                <p class="font-bold text-sm">Première sortie</p>
+                                <p class="text-xs text-slate-500">Chausey 2024</p>
+                            </div>
+                        </div>
+                        <div class="bg-white px-4 py-3 rounded-lg shadow-sm flex items-center gap-3 opacity-50">
+                            <div class="text-2xl">🎯</div>
+                            <div>
+                                <p class="font-bold text-sm">3'30" statique</p>
+                                <p class="text-xs text-slate-500">Prochain objectif</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Modal Réglementation -->
+    <div id="reglementationModal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl max-w-lg w-full max-h-[80vh] overflow-y-auto p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold">Réglementation Chausey</h3>
+                <button onclick="closeReglementation()" class="text-slate-400 hover:text-slate-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <div class="prose prose-sm">
+                <h4 class="font-bold text-red-600">Interdictions strictes</h4>
+                <ul class="list-disc pl-5 mb-4 text-slate-700">
+                    <li>Chasse sous-marine interdite dans la réserve naturelle de la Grande Île</li>
+                    <li>Interdiction < 300m des côtes de l'archipel habité</li>
+                    <li>Ormeaux : taille mini 8cm, 5 par jour max</li>
+                </ul>
+                
+                <h4 class="font-bold text-amber-600">Attention Grandes Marées (coeff >90)</h4>
+                <p class="text-slate-700 mb-4">Courants très forts entre les îles. Privilégier les heures autour de l'étale. Ne pas s'éloigner du bateau.</p>
+                
+                <h4 class="font-bold text-blue-600">Permis</h4>
+                <p class="text-slate-700">Pas besoin de permis chasse sous-marine pour le moment (prévu plus tard). Licence FFESSM obligatoire.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==================== CONFIGURATION ====================
+        const CONFIG = {
+            // Remplacez par vos vraies clés API
+            OPENWEATHER_KEY: 'YOUR_OPENWEATHER_API_KEY', // gratuit sur openweathermap.org
+            WORLDTIDES_KEY: 'YOUR_WORLDTIDES_API_KEY',   // gratuit sur worldtides.info
+            LAT: 48.8733,  // Chausey
+            LON: -1.8222,
+            CACHE_DURATION: 30 * 60 * 1000 // 30 minutes
+        };
+
+        // ==================== STATE ====================
+        let sessions = JSON.parse(localStorage.getItem('diving_sessions') || '[]');
+        let spots = JSON.parse(localStorage.getItem('diving_spots') || '[]');
+        let map = null;
+        let markers = [];
+
+        // ==================== INITIALISATION ====================
+        document.addEventListener('DOMContentLoaded', () => {
+            initWeather();
+            initMap();
+            renderLogbook();
+            renderClubHistory();
+            updateStats();
+            setDefaultDates();
+            
+            // Vérifier connexion
+            if (!navigator.onLine) {
+                document.getElementById('offlineBadge').style.display = 'block';
+            }
+            window.addEventListener('online', () => {
+                document.getElementById('offlineBadge').style.display = 'none';
+                initWeather(); // Retry fetch
+            });
+            window.addEventListener('offline', () => {
+                document.getElementById('offlineBadge').style.display = 'block';
+            });
+        });
+
+        // ==================== MÉTÉO & MARÉE (LIVE) ====================
+        async function initWeather() {
+            // Vérifier cache
+            const cached = localStorage.getItem('weather_cache');
+            if (cached) {
+                const data = JSON.parse(cached);
+                if (Date.now() - data.timestamp < CONFIG.CACHE_DURATION) {
+                    updateWeatherUI(data);
+                    return;
+                }
+            }
+
+            // Mode démo si pas de clé API
+            if (CONFIG.OPENWEATHER_KEY === 'YOUR_OPENWEATHER_API_KEY') {
+                showDemoData();
+                return;
+            }
+
+            try {
+                // 1. Météo (OpenWeatherMap)
+                const weatherRes = await fetch(
+                    `https://api.openweathermap.org/data/2.5/weather?lat=${CONFIG.LAT}&lon=${CONFIG.LON}&appid=${CONFIG.OPENWEATHER_KEY}&units=metric&lang=fr`
+                );
+                const weather = await weatherRes.json();
+
+                // 2. Marée (WorldTides ou calcul approximatif si pas de clé)
+                let tideData = await fetchTideData();
+
+                const fullData = {
+                    temp: Math.round(weather.main.temp),
+                    windSpeed: (weather.wind.speed * 1.944).toFixed(1), // m/s -> nœuds
+                    windDeg: weather.wind.deg,
+                    weather: weather.weather[0].description,
+                    tide: tideData,
+                    timestamp: Date.now()
+                };
+
+                localStorage.setItem('weather_cache', JSON.stringify(fullData));
+                updateWeatherUI(fullData);
+
+            } catch (error) {
+                console.error('Erreur météo:', error);
+                showDemoData(); // Fallback
+            }
+        }
+
+        async function fetchTideData() {
+            if (CONFIG.WORLDTIDES_KEY === 'YOUR_WORLDTIDES_API_KEY') {
+                // Calcul simplifié pour Chausey (approximatif)
+                return calculateApproxTide();
+            }
+
+            try {
+                const res = await fetch(
+                    `https://www.worldtides.info/api/v3?heights&lat=${CONFIG.LAT}&lon=${CONFIG.LON}&key=${CONFIG.WORLDTIDES_KEY}`
+                );
+                const data = await res.json();
+                
+                // Calcul coefficient simplifié basé sur amplitude
+                const heights = data.heights || [];
+                if (heights.length > 0) {
+                    const max = Math.max(...heights.map(h => h.height));
+                    const min = Math.min(...heights.map(h => h.height));
+                    const amplitude = max - min;
+                    // Coefficient approximatif: 20 + (amplitude * 25) pour zone Manche
+                    const coef = Math.min(120, Math.max(20, Math.round(20 + (amplitude * 25))));
+                    
+                    return {
+                        coefficient: coef,
+                        height: heights[0].height,
+                        trend: heights[1].height > heights[0].height ? 'Montante' : 'Descendante',
+                        nextHigh: data.extremes?.find(e => e.type === 'High')?.date
+                    };
+                }
+            } catch (e) {
+                return calculateApproxTide();
+            }
+        }
+
+        function calculateApproxTide() {
+            // Calcul harmonique simplifié pour Chausey (M2+S2 approx)
+            const now = new Date();
+            const daysSinceNewMoon = (now - new Date('2024-01-11')) / (1000 * 3600 * 24) % 29.53;
+            const lunarHour = (now.getHours() + now.getMinutes()/60 + daysSinceNewMoon * 0.5) % 12;
+            
+            // Coefficient grossier basé sur phase lunaire
+            let coef = 45 + Math.cos(daysSinceNewMoon * 2 * Math.PI / 29.53) * 45;
+            coef = Math.round(Math.max(20, Math.min(120, coef)));
+            
+            return {
+                coefficient: coef,
+                height: 6.0,
+                trend: lunarHour < 6 ? 'Montante' : 'Descendante',
+                isApprox: true
+            };
+        }
+
+        function updateWeatherUI(data) {
+            const windDir = getWindDirection(data.windDeg || 0);
+            const tideIcon = data.tide.trend === 'Montante' ? 'fa-arrow-up' : 'fa-arrow-down';
+            const approxBadge = data.tide.isApprox ? '<span class="text-[10px] bg-amber-100 text-amber-800 px-1 rounded ml-1">~</span>' : '';
+
+            document.getElementById('tideDisplay').outerHTML = `
+                <div class="flex items-center gap-2 font-bold">
+                    <i class="fas ${tideIcon} text-cyan-300"></i>
+                    <span>Marée: ${data.tide.coefficient}${approxBadge}</span>
+                    <span class="text-cyan-200 font-normal text-xs">| ${data.tide.trend}</span>
+                </div>
+            `;
+            
+            document.getElementById('windDisplay').outerHTML = `
+                <span class="flex items-center gap-1">
+                    <i class="fas fa-wind"></i> ${data.windSpeed || '--'} nds ${windDir}
+                </span>
+            `;
+            
+            document.getElementById('tempDisplay').outerHTML = `
+                <span class="flex items-center gap-1">
+                    <i class="fas fa-thermometer-half"></i> ${data.temp || '--'}°C
+                </span>
+            `;
+
+            // Alerte grandes marées Chausey
+            if (data.tide.coefficient > 90) {
+                document.getElementById('tideAlert').classList.remove('hidden');
+            }
+        }
+
+        function showDemoData() {
+            // Données factices mais réalistes pour démo
+            document.getElementById('tideDisplay').outerHTML = `
+                <div class="flex items-center gap-2 font-bold">
+                    <i class="fas fa-arrow-down text-cyan-300"></i>
+                    <span>Marée: 82</span>
+                    <span class="text-cyan-200 font-normal text-xs">| Descendante</span>
+                    <span class="text-[10px] bg-slate-600 px-1 rounded ml-1 text-xs">DEMO</span>
+                </div>
+            `;
+            document.getElementById('windDisplay').outerHTML = `
+                <span><i class="fas fa-wind"></i> 12 nds NO</span>
+            `;
+            document.getElementById('tempDisplay').outerHTML = `
+                <span><i class="fas fa-thermometer-half"></i> 14°C</span>
+            `;
+        }
+
+        function getWindDirection(degrees) {
+            const directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSO', 'SO', 'OSO', 'O', 'ONO', 'NO', 'NNO'];
+            return directions[Math.round(degrees / 22.5) % 16];
+        }
+
+        // ==================== NAVIGATION ====================
+        function switchTab(tabName) {
+            // Cacher tous les contenus
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            // Afficher le bon
+            document.getElementById(tabName).classList.remove('hidden');
+            
+            // Update nav buttons
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                if (btn.dataset.tab === tabName) {
+                    btn.classList.remove('bg-white/10');
+                    btn.classList.add('bg-white/20');
+                } else {
+                    btn.classList.add('bg-white/10');
+                    btn.classList.remove('bg-white/20');
+                }
+            });
+
+            if (tabName === 'spots' && map) {
+                setTimeout(() => map.invalidateSize(), 100);
+            }
+        }
+
+        // ==================== CLUB - Saisie rapide ====================
+        function setDefaultDates() {
+            const today = new Date();
+            document.getElementById('seaDate').valueAsDate = today;
+            
+            // Trouver le dernier lundi
+            const lastMonday = new Date(today);
+            lastMonday.setDate(today.getDate() - (today.getDay() + 6) % 7);
+            document.getElementById('clubDate').valueAsDate = lastMonday;
+            
+            // Afficher prochain lundi
+            const nextMonday = new Date(today);
+            nextMonday.setDate(today.getDate() + (8 - today.getDay()) % 7);
+            document.getElementById('nextMonday').textContent = 
+                `Prochain lundi: ${nextMonday.toLocaleDateString('fr-FR')}`;
+        }
+
+        let selectedExercises = new Set();
+
+        function toggleClubEx(exercise) {
+            const btn = document.querySelector(`button[data-ex="${exercise}"]`);
+            const hasStatique = exercise === 'statique' || exercise === 'dynamique';
+            
+            if (selectedExercises.has(exercise)) {
+                selectedExercises.delete(exercise);
+                btn.classList.remove('active');
+            } else {
+                selectedExercises.add(exercise);
+                btn.classList.add('active');
+            }
+            
+            // Activer les inputs de perf si statique/dynamique sélectionné
+            const perfSection = document.getElementById('perfInputs');
+            const hasPerf = selectedExercises.has('statique') || selectedExercises.has('dynamique');
+            perfSection.style.opacity = hasPerf ? '1' : '0.5';
+            perfSection.style.pointerEvents = hasPerf ? 'auto' : 'none';
+            
+            document.getElementById('clubExercises').value = Array.from(selectedExercises).join(',');
+        }
+
+        document.getElementById('clubForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const minutes = parseInt(document.getElementById('staMin').value) || 0;
+            const seconds = parseInt(document.getElementById('staSec').value) || 0;
+            const totalSeconds = minutes * 60 + seconds;
+            
+            const session = {
+                id: Date.now(),
+                type: 'club',
+                date: document.getElementById('clubDate').value,
+                coach: document.getElementById('clubCoach').value,
+                exercises: Array.from(selectedExercises),
+                staTime: totalSeconds,
+                dynDist: parseInt(document.getElementById('dynDist').value) || 0,
+                feeling: document.querySelector('input[name="feeling"]:checked')?.value || 'good',
+                notes: document.getElementById('clubNotes').value,
+                createdAt: new Date().toISOString()
+            };
+            
+            sessions.push(session);
+            saveSessions();
+            
+            // Reset
+            selectedExercises.clear();
+            document.querySelectorAll('.club-tag').forEach(b => b.classList.remove('active'));
+            document.getElementById('clubForm').reset();
+            setDefaultDates();
+            
+            alert('Séance enregistrée ! 💪');
+            renderClubHistory();
+            updateStats();
+        });
+
+        function saveClubDraft() {
+            const draft = {
+                date: document.getElementById('clubDate').value,
+                exercises: Array.from(selectedExercises),
+                notes: document.getElementById('clubNotes').value
+            };
+            localStorage.setItem('club_draft', JSON.stringify(draft));
+            alert('Brouillon sauvegardé pour ce soir');
+        }
+
+        // ==================== SORTIE MER ====================
+        document.getElementById('observationOnly').addEventListener('change', (e) => {
+            const inputs = document.querySelectorAll('.weight-input');
+            inputs.forEach(input => {
+                input.disabled = e.target.checked;
+                input.placeholder = e.target.checked ? "Obs." : "Poids kg";
+            });
+        });
+
+        function addCatchRow() {
+            const container = document.getElementById('catchesContainer');
+            const row = document.createElement('div');
+            row.className = 'flex gap-2 items-center catch-row animate-fade-in';
+            row.innerHTML = `
+                <select class="rounded-lg border-slate-300 text-sm flex-1 species-select">
+                    <option value="">Espèce...</option>
+                    <option value="turbot">Turbot</option>
+                    <option value="sole">Sole</option>
+                    <option value="bar">Bar</option>
+                    <option value="mulet">Mulet</option>
+                    <option value="congre">Congre</option>
+                    <option value="ormeau">Ormeau</option>
+                    <option value="crabe">Crabe</option>
+                </select>
+                <input type="number" placeholder="Poids kg" step="0.1" min="0" 
+                    class="w-24 rounded-lg border-slate-300 text-sm weight-input">
+                <button type="button" onclick="this.parentElement.remove()" class="text-red-400 hover:text-red-600">
+                    <i class="fas fa-trash"></i>
+                </button>
+            `;
+            container.appendChild(row);
+        }
+
+        document.getElementById('seaForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            // Vérification oreilles
+            if (!document.getElementById('checkEars').checked) {
+                if (!confirm('⚠️ Vous n\'avez pas coché "Oreilles OK". Continuer quand même ?')) {
+                    return;
+                }
+            }
+            
+            const catches = [];
+            document.querySelectorAll('.catch-row').forEach(row => {
+                const species = row.querySelector('.species-select').value;
+                const weight = row.querySelector('.weight-input').value;
+                if (species && weight) catches.push({species, weight});
+            });
+            
+            const session = {
+                id: Date.now(),
+                type: 'sea',
+                date: document.getElementById('seaDate').value,
+                time: document.getElementById('seaTime').value,
+                location: 'Chausey',
+                tide: document.getElementById('seaTide').value,
+                wind: document.getElementById('windSpeed').value,
+                waterTemp: document.getElementById('waterTemp').value,
+                bottom: document.getElementById('bottomType').value,
+                binome: document.getElementById('binomeName').value,
+                technique: document.querySelector('input[name="tech"]:checked').value,
+                observation: document.getElementById('observationOnly').checked,
+                catches: catches,
+                safety: {
+                    ears: document.getElementById('checkEars').checked,
+                    sleep: document.getElementById('checkSleep').checked,
+                    binome: document.getElementById('checkBinome').checked
+                }
+            };
+            
+            sessions.push(session);
+            saveSessions();
+            
+            alert('Sortie enregistrée ! Bon retour à terre 🚤');
+            document.getElementById('seaForm').reset();
+            setDefaultDates();
+            renderLogbook();
+            updateStats();
+            switchTab('dashboard');
+        });
+
+        function showReglementation() {
+            document.getElementById('reglementationModal').classList.remove('hidden');
+        }
+        
+        function closeReglementation() {
+            document.getElementById('reglementationModal').classList.add('hidden');
+        }
+
+        // ==================== CARTE & SPOTS ====================
+        function initMap() {
+            map = L.map('map').setView([CONFIG.LAT, CONFIG.LON], 12);
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+            
+            // Ajouter les spots existants
+            spots.forEach(spot => addSpotMarker(spot));
+            
+            // Clic sur carte = ajout spot
+            map.on('click', (e) => {
+                const name = prompt('Nom de ce nouveau spot ?');
+                if (name) {
+                    const spot = {
+                        id: Date.now(),
+                        name: name,
+                        lat: e.latlng.lat,
+                        lng: e.latlng.lng,
+                        type: document.getElementById('spotType').value,
+                        conditions: {
+                            minTide: 70,
+                            maxWind: 15,
+                            bestWind: 'NO'
+                        }
+                    };
+                    spots.push(spot);
+                    saveSpots();
+                    addSpotMarker(spot);
+                    renderSpotsList();
+                }
+            });
+        }
+
+        function addSpotMarker(spot) {
+            const color = spot.type === 'rock' ? 'red' : spot.type === 'sand' ? 'blue' : 'green';
+            const marker = L.circleMarker([spot.lat, spot.lng], {
+                radius: 8,
+                fillColor: color,
+                color: '#fff',
+                weight: 2,
+                opacity: 1,
+                fillOpacity: 0.8
+            }).addTo(map);
+            
+            marker.bindPopup(`
+                <b>${spot.name}</b><br>
+                Type: ${spot.type}<br>
+                <small>Conditions idéales: Marée >${spot.conditions?.minTide || 70}</small>
+            `);
+            
+            markers.push(marker);
+        }
+
+        function addCurrentSpot() {
+            if (!navigator.geolocation) {
+                alert('Géolocalisation non supportée');
+                return;
+            }
+            
+            navigator.geolocation.getCurrentPosition(pos => {
+                const name = document.getElementById('spotName').value || 'Nouveau spot';
+                const spot = {
+                    id: Date.now(),
+                    name: name,
+                    lat: pos.coords.latitude,
+                    lng: pos.coords.longitude,
+                    type: document.getElementById('spotType').value,
+                    isPrivate: true
+                };
+                
+                spots.push(spot);
+                saveSpots();
+                addSpotMarker(spot);
+                renderSpotsList();
+                
+                map.setView([spot.lat, spot.lng], 15);
+                alert('Spot enregistré à votre position actuelle');
+            }, () => {
+                alert('Impossible d\'obtenir la position. Activez le GPS.');
+            });
+        }
+
+        function renderSpotsList() {
+            const container = document.getElementById('spotsList');
+            container.innerHTML = spots.map(spot => `
+                <div class="flex justify-between items-center bg-white p-3 rounded-lg shadow-sm border border-slate-200">
+                    <div class="flex items-center gap-3">
+                        <div class="w-3 h-3 rounded-full ${spot.type === 'rock' ? 'bg-red-500' : spot.type === 'sand' ? 'bg-blue-500' : 'bg-green-500'}"></div>
+                        <div>
+                            <p class="font-bold text-slate-800">${spot.name}</p>
+                            <p class="text-xs text-slate-500">Marée min: ${spot.conditions?.minTide || 70} | Vent max: ${spot.conditions?.maxWind || 15}nds</p>
+                        </div>
+                    </div>
+                    <span class="text-xs bg-slate-100 px-2 py-1 rounded text-slate-600">
+                        <i class="fas fa-lock mr-1"></i>Privé
+                    </span>
+                </div>
+            `).join('');
+        }
+
+        // ==================== LOGBOOK & STATS ====================
+        function renderLogbook() {
+            const filter = document.getElementById('filterType')?.value || 'all';
+            const filtered = sessions.filter(s => filter === 'all' || s.type === filter)
+                                    .sort((a, b) => new Date(b.date) - new Date(a.date));
+            
+            const container = document.getElementById('logbookList');
+            if (filtered.length === 0) {
+                container.innerHTML = '<p class="p-4 text-center text-slate-400">Aucune session enregistrée</p>';
+                return;
+            }
+            
+            container.innerHTML = filtered.map(s => {
+                const isClub = s.type === 'club';
+                const icon = isClub ? 'fa-swimming-pool text-purple-500' : 'fa-water text-cyan-600';
+                const title = isClub ? `Club - ${s.exercises?.join(', ') || 'Entraînement'}` : `Chausey ${s.tide ? '(Coeff '+s.tide+')' : ''}`;
+                const details = isClub 
+                    ? (s.staTime ? `STA: ${formatTime(s.staTime)}` : '') + (s.dynDist ? ` | DYN: ${s.dynDist}m` : '')
+                    : `${s.catches?.length || 0} prise(s) - ${s.technique || 'Coulée'}`;
+                
+                return `
+                    <div class="p-4 hover:bg-slate-50 transition flex justify-between items-center">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
+                                <i class="fas ${icon}"></i>
+                            </div>
+                            <div>
+                                <p class="font-semibold text-slate-800">${title}</p>
+                                <p class="text-xs text-slate-500">${new Date(s.date).toLocaleDateString('fr-FR')} • ${details}</p>
+                            </div>
+                        </div>
+                        <button onclick="deleteSession(${s.id})" class="text-slate-300 hover:text-red-500">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderClubHistory() {
+            const clubSessions = sessions.filter(s => s.type === 'club').sort((a, b) => new Date(b.date) - new Date(a.date));
+            const container = document.getElementById('clubHistory');
+            
+            container.innerHTML = clubSessions.slice(0, 5).map(s => {
+                const emoji = s.feeling === 'great' ? '💪' : s.feeling === 'tired' ? '😮‍💨' : '🙂';
+                const exIcons = s.exercises?.map(e => {
+                    if (e === 'statique') return '<i class="fas fa-lungs text-cyan-600" title="Statique"></i>';
+                    if (e === 'dynamique') return '<i class="fas fa-ruler text-blue-600" title="Dynamique"></i>';
+                    if (e === 'tables') return '<i class="fas fa-table text-purple-600" title="Tables"></i>';
+                    return e;
+                }).join(' ') || '';
+                
+                return `
+                    <div class="bg-white p-3 rounded-lg border border-slate-200 flex justify-between items-center">
+                        <div>
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="font-bold text-sm">${new Date(s.date).toLocaleDateString('fr-FR')}</span>
+                                <span class="text-lg">${emoji}</span>
+                            </div>
+                            <div class="flex gap-2 text-sm">${exIcons}</div>
+                            ${s.staTime ? `<div class="text-xs text-slate-500 mt-1">Record: ${formatTime(s.staTime)}</div>` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function updateStats() {
+            document.getElementById('sessionCount').textContent = sessions.filter(s => s.type === 'sea').length;
+            document.getElementById('clubCount').textContent = sessions.filter(s => s.type === 'club').length;
+            
+            // Charts
+            updateCharts();
+        }
+
+        function updateCharts() {
+            // Données statiques club
+            const clubSessions = sessions.filter(s => s.type === 'club' && s.staTime);
+            const labels = clubSessions.slice(-10).map(s => new Date(s.date).toLocaleDateString('fr-FR', {day:'numeric', month:'short'}));
+            const staData = clubSessions.slice(-10).map(s => s.staTime);
+            
+            // Chart STA
+            const ctx1 = document.getElementById('staChart');
+            if (ctx1 && clubSessions.length > 0) {
+                new Chart(ctx1, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Temps STA (secondes)',
+                            data: staData,
+                            borderColor: '#0891b2',
+                            backgroundColor: 'rgba(8, 145, 178, 0.1)',
+                            tension: 0.4,
+                            fill: true
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: { legend: { display: false } },
+                        scales: { y: { min: 150 } }
+                    }
+                });
+            }
+            
+            // Chart Profondeur (mock data si pas assez de sessions mer avec profondeur)
+            const ctx2 = document.getElementById('depthChart');
+            if (ctx2) {
+                new Chart(ctx2, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Session 1', 'Session 2', 'Session 3', 'Session 4', 'Session 5'],
+                        datasets: [{
+                            label: 'Profondeur (m)',
+                            data: [8, 9, 8, 10, 9],
+                            backgroundColor: '#006994',
+                            borderRadius: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: { legend: { display: false } },
+                        scales: { y: { max: 15, min: 0 } }
+                    }
+                });
+            }
+        }
+
+        // ==================== UTILITAIRES ====================
+        function formatTime(seconds) {
+            const m = Math.floor(seconds / 60);
+            const s = seconds % 60;
+            return `${m}'${s.toString().padStart(2, '0')}"`;
+        }
+
+        function saveSessions() {
+            localStorage.setItem('diving_sessions', JSON.stringify(sessions));
+            renderLogbook();
+        }
+
+        function saveSpots() {
+            localStorage.setItem('diving_spots', JSON.stringify(spots));
+            renderSpotsList();
+        }
+
+        function deleteSession(id) {
+            if (confirm('Supprimer cette session ?')) {
+                sessions = sessions.filter(s => s.id !== id);
+                saveSessions();
+                updateStats();
+            }
+        }
+
+        // Fermer modal au clic extérieur
+        document.getElementById('reglementationModal').addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) closeReglementation();
+        });
+    </script>
+</body>
+</html>
